@@ -89,6 +89,22 @@ fn translate_codon(codon: &[u8]) -> char {
         b"TGG" => 'W',
         b"CGT" | b"CGC" | b"CGA" | b"CGG" | b"AGA" | b"AGG" => 'R',
         b"GGT" | b"GGC" | b"GGA" | b"GGG" => 'G',
+        // Degenerate codons where all IUPAC expansions encode the same amino acid.
+        // Standard IUPAC N = {A,C,G,T}; the 8 cases below are the only 4-fold
+        // degenerate patterns for the standard genetic code (table 1).
+        [b1, b2, b'N'] => {
+            match (b1, b2) {
+                (b'G', b'T') => 'V', // GTN = {GTA,GTC,GTG,GTT} all Val
+                (b'G', b'C') => 'A', // GCN = {GCA,GCC,GCG,GCT} all Ala
+                (b'G', b'G') => 'G', // GGN = {GGA,GGC,GGG,GGT} all Gly
+                (b'C', b'T') => 'L', // CTN = {CTA,CTC,CTG,CTT} all Leu
+                (b'C', b'C') => 'P', // CCN = {CCA,CCC,CCG,CCT} all Pro
+                (b'C', b'G') => 'R', // CGN = {CGA,CGC,CGG,CGT} all Arg
+                (b'A', b'C') => 'T', // ACN = {ACA,ACC,ACG,ACT} all Thr
+                (b'T', b'C') => 'S', // TCN = {TCA,TCC,TCG,TCT} all Ser
+                _ => 'X',
+            }
+        }
         _ => 'X',
     }
 }
