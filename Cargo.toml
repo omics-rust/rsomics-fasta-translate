@@ -12,6 +12,11 @@ description = "Translate DNA/RNA FASTA to protein sequences (six-frame)"
 name = "rsomics-fasta-translate"
 path = "src/main.rs"
 
+
+[lib]
+name = "rsomics_fasta_translate"
+path = "src/lib.rs"
+doctest = false
 [dependencies]
 rsomics-common = { version = "0.6" }
 rsomics-help = { version = "0.3" }
