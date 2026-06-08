@@ -108,3 +108,45 @@ fn degenerate_n_codons_match_seqkit() {
         result[0]
     );
 }
+
+// Goldens below were captured once from `seqkit translate` (v2.9.0) so CI diffs
+// ours-vs-golden per-record even where seqkit is absent.
+
+fn golden(name: &str) -> Vec<u8> {
+    std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/golden")
+            .join(name),
+    )
+    .unwrap()
+}
+
+#[test]
+fn translation_matches_seqkit_golden() {
+    let ours = bin().arg(fixture()).output().unwrap();
+    assert!(
+        ours.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&ours.stderr)
+    );
+    assert_eq!(seqs(&ours.stdout), seqs(&golden("small.seqkit.faa")));
+}
+
+#[test]
+fn degenerate_n_codons_match_golden() {
+    let input = b">test\nGTNGCNGGNCTNCCNCGNACNTCN\n";
+    let tmp = std::env::temp_dir().join("rsomics-translate-degen-golden");
+    std::fs::create_dir_all(&tmp).unwrap();
+    let fa = tmp.join("degen.fa");
+    std::fs::write(&fa, input).unwrap();
+
+    let ours = bin().arg(&fa).output().unwrap();
+    assert!(
+        ours.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&ours.stderr)
+    );
+    let result = seqs(&ours.stdout);
+    assert_eq!(result, seqs(&golden("degen.seqkit.faa")));
+    assert!(!result[0].contains('X'), "got: {}", result[0]);
+}
