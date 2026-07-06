@@ -28,7 +28,12 @@ pub struct Cli {
     output: String,
 
     /// Reading frames (comma-separated: 1,2,3,-1,-2,-3 or 6 for all).
-    #[arg(short = 'f', long = "frames", default_value = "1")]
+    #[arg(
+        short = 'f',
+        long = "frames",
+        default_value = "1",
+        allow_hyphen_values = true
+    )]
     frames: String,
 
     #[command(flatten)]

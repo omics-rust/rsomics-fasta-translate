@@ -61,12 +61,66 @@ fn translate_seq(dna: &[u8], _table: u8) -> String {
     protein
 }
 
+// A codon whose three positions are all IUPAC gap characters translates to a
+// single gap; a partial-gap codon has no consistent amino acid and is 'X'.
+// Every other codon is resolved by expanding each IUPAC symbol to its base set
+// (U treated as T for RNA input), translating every concrete ACGT combination
+// under the standard code, and emitting the amino acid only when all agree.
 fn translate_codon(codon: &[u8]) -> char {
     let c = [
         codon[0].to_ascii_uppercase(),
         codon[1].to_ascii_uppercase(),
         codon[2].to_ascii_uppercase(),
     ];
+    if c == [b'-', b'-', b'-'] {
+        return '-';
+    }
+
+    let (e0, e1, e2) = (iupac_bases(c[0]), iupac_bases(c[1]), iupac_bases(c[2]));
+    if e0.is_empty() || e1.is_empty() || e2.is_empty() {
+        return 'X';
+    }
+
+    let mut aa: Option<char> = None;
+    for &b0 in e0 {
+        for &b1 in e1 {
+            for &b2 in e2 {
+                let a = standard_codon([b0, b1, b2]);
+                match aa {
+                    None => aa = Some(a),
+                    Some(prev) if prev != a => return 'X',
+                    _ => {}
+                }
+            }
+        }
+    }
+    aa.unwrap()
+}
+
+// IUPAC symbol → the set of concrete bases it denotes; empty for non-nucleotide
+// characters. U aliases T so RNA translates like DNA.
+fn iupac_bases(b: u8) -> &'static [u8] {
+    match b {
+        b'A' => b"A",
+        b'C' => b"C",
+        b'G' => b"G",
+        b'T' | b'U' => b"T",
+        b'R' => b"AG",
+        b'Y' => b"CT",
+        b'S' => b"CG",
+        b'W' => b"AT",
+        b'K' => b"GT",
+        b'M' => b"AC",
+        b'B' => b"CGT",
+        b'D' => b"AGT",
+        b'H' => b"ACT",
+        b'V' => b"ACG",
+        b'N' => b"ACGT",
+        _ => b"",
+    }
+}
+
+fn standard_codon(c: [u8; 3]) -> char {
     match &c {
         b"TTT" | b"TTC" => 'F',
         b"TTA" | b"TTG" | b"CTT" | b"CTC" | b"CTA" | b"CTG" => 'L',
@@ -89,22 +143,6 @@ fn translate_codon(codon: &[u8]) -> char {
         b"TGG" => 'W',
         b"CGT" | b"CGC" | b"CGA" | b"CGG" | b"AGA" | b"AGG" => 'R',
         b"GGT" | b"GGC" | b"GGA" | b"GGG" => 'G',
-        // Degenerate codons where all IUPAC expansions encode the same amino acid.
-        // Standard IUPAC N = {A,C,G,T}; the 8 cases below are the only 4-fold
-        // degenerate patterns for the standard genetic code (table 1).
-        [b1, b2, b'N'] => {
-            match (b1, b2) {
-                (b'G', b'T') => 'V', // GTN = {GTA,GTC,GTG,GTT} all Val
-                (b'G', b'C') => 'A', // GCN = {GCA,GCC,GCG,GCT} all Ala
-                (b'G', b'G') => 'G', // GGN = {GGA,GGC,GGG,GGT} all Gly
-                (b'C', b'T') => 'L', // CTN = {CTA,CTC,CTG,CTT} all Leu
-                (b'C', b'C') => 'P', // CCN = {CCA,CCC,CCG,CCT} all Pro
-                (b'C', b'G') => 'R', // CGN = {CGA,CGC,CGG,CGT} all Arg
-                (b'A', b'C') => 'T', // ACN = {ACA,ACC,ACG,ACT} all Thr
-                (b'T', b'C') => 'S', // TCN = {TCA,TCC,TCG,TCT} all Ser
-                _ => 'X',
-            }
-        }
         _ => 'X',
     }
 }
@@ -112,11 +150,22 @@ fn translate_codon(codon: &[u8]) -> char {
 fn revcomp(seq: &[u8]) -> Vec<u8> {
     seq.iter()
         .rev()
-        .map(|&b| match b {
-            b'A' | b'a' => b'T',
-            b'T' | b't' => b'A',
-            b'C' | b'c' => b'G',
-            b'G' | b'g' => b'C',
+        .map(|&b| match b.to_ascii_uppercase() {
+            b'A' => b'T',
+            b'T' | b'U' => b'A',
+            b'C' => b'G',
+            b'G' => b'C',
+            b'R' => b'Y',
+            b'Y' => b'R',
+            b'S' => b'S',
+            b'W' => b'W',
+            b'K' => b'M',
+            b'M' => b'K',
+            b'B' => b'V',
+            b'V' => b'B',
+            b'D' => b'H',
+            b'H' => b'D',
+            b'-' => b'-',
             _ => b'N',
         })
         .collect()
