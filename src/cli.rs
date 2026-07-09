@@ -55,7 +55,11 @@ impl Cli {
                 .collect::<Result<Vec<_>>>()?
         };
 
-        let mut out: Box<dyn std::io::Write> = if self.output == "-" {
+        // Under --json the framework owns stdout with the result envelope, so
+        // route the FASTA stream to a sink when writing to stdout (use -o for data).
+        let mut out: Box<dyn std::io::Write> = if self.output == "-" && self.common.json {
+            Box::new(std::io::sink())
+        } else if self.output == "-" {
             Box::new(std::io::stdout().lock())
         } else {
             Box::new(std::fs::File::create(&self.output).map_err(RsomicsError::Io)?)
