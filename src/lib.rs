@@ -72,7 +72,7 @@ fn translate_codon(codon: &[u8]) -> char {
         codon[1].to_ascii_uppercase(),
         codon[2].to_ascii_uppercase(),
     ];
-    if c == [b'-', b'-', b'-'] {
+    if c == *b"---" {
         return '-';
     }
 
